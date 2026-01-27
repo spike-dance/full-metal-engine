@@ -1,3 +1,5 @@
+#include <vulkan/vulkan.h>
+
 #include <stdio.h>
 
 #include "global_variable.h"
@@ -11,8 +13,8 @@ int g_validationLayerCount = 1;
 const char* gvv_instanceExtensionName[] = {"VK_EXT_debug_utils"};
 i32 g_instanceExtensionCount = 1;
 
-const char* gvv_deviceExtensionName[] = {"VK_KHR_dynamic_rendering"};
-i32 g_deviceExtensionCount = 1;
+const char* gvv_deviceExtensionName[] = {VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+i32 g_deviceExtensionCount = 3;
 
 void fn_manageMainArg(i32 argc, char** vv_argv)
 {

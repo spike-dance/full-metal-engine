@@ -28,6 +28,8 @@ typedef enum
         INSTANCE_CREATED,
         DEBUG_CALLBACK_CREATED,
         DEVICE_CREATED,
+        SURFACE_CREATED,
+        SWAPCHAIN_CREATED
 } E_vulkanContextAdvancement;
 
 typedef struct
@@ -52,6 +54,7 @@ typedef struct
         VkSurfaceKHR surface;
 
         VkSwapchainKHR swapchain;
+        VkFormat swapFormat;
         VkExtent2D swapExtent;
 
         u32 imageCount;
@@ -72,7 +75,9 @@ E_error fn_createVulkanDebugCallBack(S_vulkanContext* p_context);
 
 E_error fn_getPhysicalDevice(S_vulkanContext* p_context);
 
-E_error fn_createDevice(S_vulkanContext* context);
+E_error fn_createDevice(S_vulkanContext* p_context);
+
+E_error fn_createSwapchain(S_vulkanContext* p_context);
 
 /*E_error fn_(S_vulkanContext* p_context);
 E_error fn_(S_vulkanContext* p_context);

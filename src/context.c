@@ -24,8 +24,10 @@ S_vulkanContext fn_createVulkanContext()
 
         if(!context.window)
                 goto GO_END_ERROR;
+        context.advancement = WINDOW_CREATED;
 
         E_error error = NO_ERROR;
+        VkResult vulkanError = VK_SUCCESS;
 
         error = fn_createInstance(&context);
         if(error != NO_ERROR)
@@ -46,12 +48,17 @@ S_vulkanContext fn_createVulkanContext()
                 goto GO_END_ERROR;
         context.advancement = DEVICE_CREATED;
 
-        /*error = fn_create(&context);
+        vulkanError = glfwCreateWindowSurface(context.instance, context.window, NULL, &context.surface);
+        if(vulkanError != VK_SUCCESS)
+                goto GO_END_ERROR;
+        context.advancement = SURFACE_CREATED;
+
+        error = fn_createSwapchain(&context);
         if(error != NO_ERROR)
                 goto GO_END_ERROR;
-        context.advancement++;
+        context.advancement = SWAPCHAIN_CREATED;
 
-        error = fn_create(&context);
+        /*error = fn_create(&context);
         if(error != NO_ERROR)
                 goto GO_END_ERROR;
         context.advancement++;*/
@@ -71,6 +78,12 @@ void fn_clearVulkanContext(S_vulkanContext context)
 {
         switch(context.advancement)
         {
+                case SWAPCHAIN_CREATED:
+                        vkDestroySwapchainKHR(context.device, context.swapchain, NULL);
+
+                case SURFACE_CREATED:
+                        vkDestroySurfaceKHR(context.instance, context.surface, NULL);
+
                 case DEVICE_CREATED:
                         vkDestroyDevice(context.device, NULL);
                         printf("Device destroy\n");
@@ -245,79 +258,20 @@ E_error fn_getPhysicalDevice(S_vulkanContext* p_context)
         return NO_ERROR;
 }
 
-E_error fn_createDevice(S_vulkanContext* p_context)
+E_error fn_createDevice(S_vulkanContext* p_context) // TODO : complitely change this fonction
 {
-        u32 queueFamilyPropertyCount;
-        vkGetPhysicalDeviceQueueFamilyProperties(p_context->physicalDevice, &queueFamilyPropertyCount, NULL);
-        VkQueueFamilyProperties* v_queueFamilyProperty = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(p_context->physicalDevice, &queueFamilyPropertyCount, v_queueFamilyProperty);
+        float v_queuePriority [] = {1.0f, 1.0f, 1.0f};
 
-        REPEAT()
-
-        p_context->graphiqueQueueFamilyIndex = -1;
-        p_context->transfertQueueFamilyIndex = -1;
-        p_context->computeQueueFamilyIndex = -1;
-
-        bool allQueueFound = false;
-        for(u32 i=0; i<queueFamilyPropertyCount; i++)
-        {
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
-                        p_context->graphiqueQueueFamilyIndex==-1 &&
-                        v_queueFamilyProperty[i].queueCount)
+        VkDeviceQueueCreateInfo deviceQueueInfo =
                 {
-                        p_context->graphiqueQueueFamilyIndex = i;
-                        v_queueFamilyProperty[i].queueCount--;
-                }
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_COMPUTE_BIT &&
-                        p_context->computeQueueFamilyIndex==-1 &&
-                        v_queueFamilyProperty[i].queueCount)
-                {
-                        p_context->computeQueueFamilyIndex = i;
-                        v_queueFamilyProperty[i].queueCount--;
-                }
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_TRANSFER_BIT &&
-                        p_context->transfertQueueFamilyIndex==-1 &&
-                        v_queueFamilyProperty[i].queueCount)
-                {
-                        p_context->transfertQueueFamilyIndex = i;
-                        v_queueFamilyProperty[i].queueCount--;
-                }
+                        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                        .queueFamilyIndex = 0,
+                        .queueCount = 3,
+                        .pQueuePriorities = v_queuePriority,
 
-                if(p_context->graphiqueQueueFamilyIndex!=-1 && p_context->computeQueueFamilyIndex!=-1 && p_context->transfertQueueFamilyIndex!=-1)
-                {
-                        allQueueFound = true;
-                        break;
-                }
-        }
+                };
 
-        if(!allQueueFound)
-        {
-                printf("all queue not found : graphique %d, transfert %d, compute %d\n", p_context->graphiqueQueueFamilyIndex, p_context->transfertQueueFamilyIndex, p_context->computeQueueFamilyIndex);
-                free(v_queueFamilyProperty);
-                return CREATION_FAILED;
-        }
-
-        printf("%d\n", v_queueFamilyProperty[0].queueFlags);
-
-        u32 queueFamilyToUseCount = 1; // TODO : determine witch queue family to use
-        u32 v_queueFamilyToUse [] = {0};
-        u32 v_queueCount []= {3};
-
-        VkDeviceQueueCreateInfo* v_queueCreateInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * queueFamilyToUseCount);
-        for(u32 i=0; i<queueFamilyToUseCount; i++)
-        {
-                f32 v_queue_priority [] = {1.0f, 1.0f, 1.0f}; // TODO : change this
-
-
-                v_queueCreateInfo[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                v_queueCreateInfo[i].queueFamilyIndex = v_queueFamilyToUse[i];
-                v_queueCreateInfo[i].queueCount = v_queueCount[i];
-                v_queueCreateInfo[i].pQueuePriorities = v_queue_priority;
-        }
-
-        VkPhysicalDeviceFeatures physicalDeviceFeature = {0}; // TODO : update this for future use
-
-        // TODO : create a smart way to implement device extention
+        VkPhysicalDeviceFeatures deviceFeature = {0};
 
         VkPhysicalDeviceSynchronization2Features sync2Feature =
                 {
@@ -336,25 +290,72 @@ E_error fn_createDevice(S_vulkanContext* p_context)
                 {
                         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                         .pNext = &dynamicRenderingFeature,
-
-                        .pEnabledFeatures = &physicalDeviceFeature,
-
-                        .queueCreateInfoCount = queueFamilyToUseCount,
-                        .pQueueCreateInfos = v_queueCreateInfo,
+                        .pQueueCreateInfos = &deviceQueueInfo,
+                        .queueCreateInfoCount = 1,
+                        .pEnabledFeatures = &deviceFeature,
 
                         .enabledExtensionCount = g_deviceExtensionCount,
-                        .ppEnabledExtensionNames = gvv_deviceExtensionName
+                        .ppEnabledExtensionNames = gvv_deviceExtensionName,
+
                 };
 
-
         VkResult result = vkCreateDevice(p_context->physicalDevice, &createInfo, NULL, &p_context->device);
-        free(v_queueFamilyProperty);
-        free(v_queueCreateInfo);
         if(result != VK_SUCCESS)
         {
-                fprintf(stderr, ANSI_RED_TEXT("error") " : logicial device creation failed [%d] %s\n", result, fn_getVulkanErrorName(result));
+                fprintf(stderr, "Error : physical device creation failed [%d] \"%s\"\n", result, fn_getVulkanErrorName(result));
                 return CREATION_FAILED;
         }
 
+        return NO_ERROR;
+}
+
+E_error fn_createSwapchain(S_vulkanContext* p_context) // TODO : need a total rework for compatibility
+{
+        VkSurfaceCapabilitiesKHR capability;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(p_context->physicalDevice, p_context->surface, &capability);
+
+        u32 formatCount;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(p_context->physicalDevice, p_context->surface, &formatCount, NULL);
+        VkSurfaceFormatKHR* v_format = malloc(sizeof(VkSurfaceFormatKHR) * formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(p_context->physicalDevice, p_context->surface, &formatCount, v_format);
+
+        p_context->swapFormat = v_format[0].format;
+        for(u32 i=0; i<formatCount; i++)
+        {
+                if(v_format[i].format == VK_FORMAT_B8G8R8A8_SRGB &&
+                   v_format[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                        p_context->swapFormat = v_format[i].format;
+        }
+        free(v_format);
+
+        VkSwapchainCreateInfoKHR createInfo =
+                {
+                        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                        .surface = p_context->surface,
+
+                        .minImageCount = capability.minImageCount + 1,
+                        .imageFormat = p_context->swapFormat,
+                        .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, // TODO : hard coded
+                        .imageExtent = p_context->swapExtent,
+                        .imageArrayLayers = 1,
+                        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+
+                        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+
+                        .preTransform = capability.currentTransform,
+
+                        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+
+                        .presentMode = VK_PRESENT_MODE_MAILBOX_KHR, // TODO : hard coded
+                        .clipped = VK_TRUE,
+                        .oldSwapchain = VK_NULL_HANDLE,
+                };
+
+        VkResult result = vkCreateSwapchainKHR(p_context->device, &createInfo, NULL, &p_context->swapchain);
+        if(result != VK_SUCCESS)
+        {
+                fprintf(stderr, ANSI_RED_TEXT("Error") " : swapchain creation failed [%d] %s\n", result, fn_getVulkanErrorName(result));
+                return CREATION_FAILED;
+        }
         return NO_ERROR;
 }
