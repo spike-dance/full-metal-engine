@@ -7,19 +7,21 @@ E_mainState fn_engineLoop()
         E_mainState returnValue = END;
 
         S_vulkanContext context = fn_createVulkanContext();
-        fn_clearVulkanContext(context);
-
         if(context.error != NO_ERROR)
         {
-                fn_clearVulkanContext(context);
+                returnValue = ENGINE_INIT_FAILED;
+                goto GO_END_CONTEXT_CREATED;
         }
 
         bool running = true;
-        while(running)
+        while(!running)
         {
 
         }
 
+GO_END_CONTEXT_CREATED:
+        fn_clearVulkanContext(context);
 
-        return END;
+GO_END:
+        return returnValue;
 }

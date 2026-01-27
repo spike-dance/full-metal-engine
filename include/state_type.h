@@ -4,7 +4,8 @@
 typedef enum
 {
         END,
-        ENGINE
+        ENGINE,
+        ENGINE_INIT_FAILED
 } E_mainState;
 
 #endif

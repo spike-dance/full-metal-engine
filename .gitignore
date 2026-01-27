@@ -1,0 +1,9 @@
+*
+
+!*/
+!src/*.c
+!include/*.h
+!CMakeLists.txt
+!README.md
+!LICENSE
+!.gitignore

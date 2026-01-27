@@ -34,5 +34,6 @@ i32 main(int argc, char** vv_argv)
         }
 
         glfwTerminate();
+GO_END:
         return returnValue;
 }

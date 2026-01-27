@@ -2,6 +2,7 @@
 #define CONTEXT_H
 
 #include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
 
 #include <stdio.h>
 
@@ -22,16 +23,11 @@ typedef struct
 
 typedef enum
 {
-        NOTHING_CREATED = 0,
-        INSTANCE_CREATED = 1,
-        DEBUG_CALLBACK_CREATED = 2,
-        DEVICE_CREATED = 3,
-/*_CREATED
-_CREATED
-_CREATED
-_CREATED
-_CREATED*/
-
+        NOTHING_CREATED,
+        WINDOW_CREATED,
+        INSTANCE_CREATED,
+        DEBUG_CALLBACK_CREATED,
+        DEVICE_CREATED,
 } E_vulkanContextAdvancement;
 
 typedef struct
@@ -39,6 +35,7 @@ typedef struct
         E_error error;
         E_vulkanContextAdvancement advancement;
 
+        GLFWwindow* window;
         VkInstance instance;
 
         VkDebugUtilsMessengerEXT debugCallback;

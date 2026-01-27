@@ -17,12 +17,12 @@ S_vulkanContext fn_createVulkanContext()
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        GLFWwindow* window = glfwCreateWindow(800, 500,
+        context.window = glfwCreateWindow(800, 500,
                          "engine scene",
                          NULL, NULL
                          );
 
-        if(!window)
+        if(!context.window)
                 goto GO_END_ERROR;
 
         E_error error = NO_ERROR;
@@ -30,12 +30,12 @@ S_vulkanContext fn_createVulkanContext()
         error = fn_createInstance(&context);
         if(error != NO_ERROR)
                 goto GO_END_ERROR;
-        context.advancement++;
+        context.advancement = INSTANCE_CREATED;
 
         error = fn_createVulkanDebugCallBack(&context);
         if(error != NO_ERROR)
                 goto GO_END_ERROR;
-        context.advancement++;
+        context.advancement = DEBUG_CALLBACK_CREATED;
 
         error = fn_getPhysicalDevice(&context);
         if(error != NO_ERROR)
@@ -44,7 +44,7 @@ S_vulkanContext fn_createVulkanContext()
         error = fn_createDevice(&context);
         if(error != NO_ERROR)
                 goto GO_END_ERROR;
-        context.advancement++;
+        context.advancement = DEVICE_CREATED;
 
         /*error = fn_create(&context);
         if(error != NO_ERROR)
@@ -77,15 +77,25 @@ void fn_clearVulkanContext(S_vulkanContext context)
 
                 case DEBUG_CALLBACK_CREATED:
                         PFN_vkDestroyDebugUtilsMessengerEXT pfn_vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
-                        pfn_vkDestroyDebugUtilsMessengerEXT(context.instance, context.debugCallback, NULL);
-                        printf("Debug callback destroy\n");
+                        if(pfn_vkDestroyDebugUtilsMessengerEXT)
+                        {
+                                pfn_vkDestroyDebugUtilsMessengerEXT(context.instance, context.debugCallback, NULL);
+                                printf("Debug callback destroy\n");
+                        }
+
                         free(context.p_debugCallbackArg);
 
                 case INSTANCE_CREATED:
                         vkDestroyInstance(context.instance, NULL);
                         printf("Instance destroy\n");
 
+                case WINDOW_CREATED:
+                        glfwDestroyWindow(context.window);
+
                 case NOTHING_CREATED:
+                        break;
+                default:
+                        
         }
 }
 
@@ -242,25 +252,32 @@ E_error fn_createDevice(S_vulkanContext* p_context)
         VkQueueFamilyProperties* v_queueFamilyProperty = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(p_context->physicalDevice, &queueFamilyPropertyCount, v_queueFamilyProperty);
 
+        REPEAT()
 
-         p_context->graphiqueQueueFamilyIndex = -1;
-         p_context->transfertQueueFamilyIndex = -1;
-         p_context->computeQueueFamilyIndex = -1;
+        p_context->graphiqueQueueFamilyIndex = -1;
+        p_context->transfertQueueFamilyIndex = -1;
+        p_context->computeQueueFamilyIndex = -1;
 
         bool allQueueFound = false;
         for(u32 i=0; i<queueFamilyPropertyCount; i++)
         {
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_GRAPHICS_BIT && p_context->graphiqueQueueFamilyIndex!=-1 && v_queueFamilyProperty[i].queueCount)
+                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_GRAPHICS_BIT &&
+                        p_context->graphiqueQueueFamilyIndex==-1 &&
+                        v_queueFamilyProperty[i].queueCount)
                 {
                         p_context->graphiqueQueueFamilyIndex = i;
                         v_queueFamilyProperty[i].queueCount--;
                 }
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_COMPUTE_BIT && p_context->computeQueueFamilyIndex!=-1 && v_queueFamilyProperty[i].queueCount)
+                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_COMPUTE_BIT &&
+                        p_context->computeQueueFamilyIndex==-1 &&
+                        v_queueFamilyProperty[i].queueCount)
                 {
                         p_context->computeQueueFamilyIndex = i;
                         v_queueFamilyProperty[i].queueCount--;
                 }
-                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_TRANSFER_BIT && p_context->transfertQueueFamilyIndex!=-1 && v_queueFamilyProperty[i].queueCount)
+                if(v_queueFamilyProperty[i].queueFlags & VK_QUEUE_TRANSFER_BIT &&
+                        p_context->transfertQueueFamilyIndex==-1 &&
+                        v_queueFamilyProperty[i].queueCount)
                 {
                         p_context->transfertQueueFamilyIndex = i;
                         v_queueFamilyProperty[i].queueCount--;
@@ -275,6 +292,7 @@ E_error fn_createDevice(S_vulkanContext* p_context)
 
         if(!allQueueFound)
         {
+                printf("all queue not found : graphique %d, transfert %d, compute %d\n", p_context->graphiqueQueueFamilyIndex, p_context->transfertQueueFamilyIndex, p_context->computeQueueFamilyIndex);
                 free(v_queueFamilyProperty);
                 return CREATION_FAILED;
         }
@@ -327,6 +345,7 @@ E_error fn_createDevice(S_vulkanContext* p_context)
                         .enabledExtensionCount = g_deviceExtensionCount,
                         .ppEnabledExtensionNames = gvv_deviceExtensionName
                 };
+
 
         VkResult result = vkCreateDevice(p_context->physicalDevice, &createInfo, NULL, &p_context->device);
         free(v_queueFamilyProperty);
